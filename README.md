@@ -1,12 +1,12 @@
-# RAGrarian 🌿 - Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
+# 🌿 RAGrarian 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
 
 ## Overview
 
-This project implements a Retrieval-Augmented Generation (RAG) chatbot focused on permaculture, regenerative agriculture, and sustainable development to provide accurate, context-aware answers about sustainable farming practices, ecological design principles, and regenerative systems.
+This project implements a Retrieval-Augmented Generation (RAG) chatbot to provide accurate, context-aware answers about sustainable farming practices, ecological design principles, and regenerative systems.
 
 This project uses MistralAI for the LLM backend, LangChain to implement the RAG system, and Gradio for the UI.
 
-All data sources are either open-source or usage permissions have been granted by the respective publishers. Currently using information from [Open Source Ecology](https://wiki.opensourceecology.org/wiki/) and [One Commuity Global](http://onecommunityglobal.org/)
+All data sources are either open-source or usage permissions have been granted by the respective publishers.
 
 ## Goals
 
@@ -55,6 +55,11 @@ agent.chat()
 Contributions are welcome! Please open an issue or submit a pull request.
 
 Suggestions for resources to share are also welcome!
+
+## Data Sources
+
+- [Open Source Ecology](https://wiki.opensourceecology.org/wiki/)
+- [One Commuity Global](http://onecommunityglobal.org/)
 
 ## License
 
