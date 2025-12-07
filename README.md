@@ -6,7 +6,7 @@ This project implements a Retrieval-Augmented Generation (RAG) chatbot focused o
 
 This project uses MistralAI for the LLM backend, LangChain to implement the RAG system, and Gradio for the UI.
 
-All data sources are either open-source or usage permissions have been granted by the respective publishers.
+All data sources are either open-source or usage permissions have been granted by the respective publishers. Currently using information from [Open Source Ecology](https://wiki.opensourceecology.org/wiki/) and [One Commuity Global](http://onecommunityglobal.org/)
 
 ## Goals
 
@@ -29,7 +29,8 @@ pip install -r requirements.txt
 ```
 
 ## Interactive UI
-** Notice - Hostong on HuggingFace in progess **
+**COMING SOON - Hosting on HuggingFace**
+
 The UI is powered by Gradio. A local UI can be started with by running `webUI.py`.
 
 ## Command Line Usage
@@ -52,6 +53,8 @@ agent.chat()
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.
+
+Suggestions for resources to share are also welcome!
 
 ## License
 
