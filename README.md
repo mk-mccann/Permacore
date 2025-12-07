@@ -1,8 +1,8 @@
-# Permaculture RAG 🌿 - Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
+# RAGrarian 🌿 - Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
 
 ## Overview
 
-This project implements a Retrieval-Augmented Generation (RAG) chatbot focused on permaculture, regenerative agriculture, and sustainable development. It combines large language models with a knowledge base to provide accurate, context-aware answers about sustainable farming practices, ecological design principles, and regenerative systems.
+This project implements a Retrieval-Augmented Generation (RAG) chatbot focused on permaculture, regenerative agriculture, and sustainable development to provide accurate, context-aware answers about sustainable farming practices, ecological design principles, and regenerative systems.
 
 This project uses MistralAI for the LLM backend, LangChain to implement the RAG system, and Gradio for the UI.
 
@@ -28,14 +28,18 @@ A Python `venv` or `conda` environment is recommended for installation. Then,
 pip install -r requirements.txt
 ```
 
+## Interactive UI
+** Notice - Hostong on HuggingFace in progess **
+The UI is powered by Gradio. A local UI can be started with by running `webUI.py`.
+
 ## Command Line Usage
 **NOTICE - A MistralAI API key is required!**
 
 ```python
 # Example usage
-from langchain_rag_permaculture import PermacultureRAGAgent
+from RAGrarian.rag_agent import RAGAgent
 
-agent = PermacultureRAGAgent()
+agent = rag_agent()
 
 # For a single query:
 response = agent.query("What are the three ethics of permaculture?")
