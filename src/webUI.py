@@ -6,6 +6,11 @@ from dotenv import load_dotenv
 from rag_agent import RAGAgent
 
 
+# Set custom theme
+theme = gr.themes.Ocean(
+    text_size="lg",
+)
+
 # Load environment variables
 load_dotenv()
 mistral_api_key = os.getenv("MISTRAL_API_KEY").strip()
@@ -75,18 +80,8 @@ def chat_interface(message, history):
 def create_demo():
     """Create and configure the Gradio interface."""
     
-    # Custom CSS for better styling
-    custom_css = """
-    .source-box {
-        background-color: #f5f5f5;
-        border-radius: 8px;
-        padding: 15px;
-        margin-top: 10px;
-    }
-    """
-    
     # Create the interface with tabs
-    with gr.Blocks(css=custom_css, title="RAG Agent Demo") as demo:
+    with gr.Blocks(theme=theme, title="RAG Agent Demo") as demo:
         
         gr.Markdown("""
         # 🌱 RAGrarian - Sustainable Development Knowledge Base
@@ -172,7 +167,7 @@ def create_demo():
             1. You ask a question
             2. The agent searches the knowledge base for relevant documents
             3. It generates an answer based on the retrieved context
-            4. Sources are cited using [Source N] format
+            4. Sources are cited using [N] format
             
             ### Technology Stack:
             - **LLM**: Mistral AI
@@ -181,8 +176,11 @@ def create_demo():
             - **UI**: Gradio
 
             ### Developed by:           
-            Matt McCann (c) 2025
-            [GitHub](www.mk-mccann.github.io) | [LinkedIn](https://linkedin.com/in/matt-k-mccann/)
+            Matt McCann :copyright: 2025 | GPL v3
+                        
+            View the [Source Code](https://github.com/mk-mccann/RAGrarian) on GitHub
+                        
+            [Personal Site](www.mk-mccann.github.io) | [LinkedIn](https://linkedin.com/in/matt-k-mccann/)
             """)
             
     
@@ -225,5 +223,5 @@ if __name__ == "__main__":
         server_name=args.host,
         server_port=args.port,
         show_error=args.debug,
-        share=args.share
+        share=args.share,
     )
