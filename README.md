@@ -1,4 +1,4 @@
-# 🌿 RAGrarian 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
+# 🌿 Permacore 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
 
 ## Overview
 
@@ -38,7 +38,7 @@ The UI is powered by Gradio. A local UI can be started with by running `webUI.py
 
 ```python
 # Example usage
-from RAGrarian.rag_agent import RAGAgent
+from Permacore.rag_agent import RAGAgent
 
 agent = rag_agent()
 
