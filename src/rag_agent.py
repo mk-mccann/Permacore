@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence, List, Tuple
+from dataclasses import dataclass
 
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
@@ -9,80 +10,142 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, AgentState
 from langgraph.checkpoint.memory import InMemorySaver  
 
-from utils.citation_formatter import build_citation, format_citation_line
+from utils.citation_formatter import build_citation, format_citation_line, format_context_for_display
+
+
+@dataclass
+class ModelConfig:
+    """Configuration for the LLM model."""
+    name: str = "mistral-small-latest"
+    temperature: float = 0.7
+    max_tokens: int = 1024
+
+
+@dataclass
+class RetrievalConfig:
+    """Configuration for document retrieval."""
+    k_documents: int = 5
+    search_function: str = "similarity"
+    similarity_threshold: float = 0.25    # used for similarity search
+    lambda_mmr: float = 0.7  # used for mmr search
+    debug_score: bool = False
 
 
 class CustomAgentState(AgentState):  
     user_id: str
     preferences: dict
-    context: list[Document]
+    context: list[tuple[Document, float | None]]
 
 
 class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
     state_schema = CustomAgentState
 
-    def __init__(self, vectorstore: Chroma, 
+    def __init__(self, 
+                 rag_agent: 'RAGAgent',
+                 vectorstore: Chroma, 
                  k_documents: int = 4, 
-                 similarity_threshold: float = 0.25):
+                 search_function: str = "similarity",
+                 similarity_threshold: float = 0.25,    # used for similarity search
+                 lambda_mmr: float = 0.5    # used for mmr search
+                 ):
+        
+        """
+        Middleware to retrieve relevant documents before model invocation.
+
+        Args:
+            rag_agent (RAGAgent): Reference to parent RAG agent for formatting.
+            vectorstore (Chroma): Vector store for document retrieval.
+            k_documents (int): Number of documents to retrieve.
+            search_function (str): Search function to use 
+                                   'mmr' for max marginal relevance
+                                   (default) 'similarity' for standard similarity search.
+            similarity_threshold (float): Similarity score threshold for document filtering.
+
+        """
         
         self.vectorstore = vectorstore
+        self.rag_agent = rag_agent
         self.k_documents = k_documents
         self.similarity_threshold = similarity_threshold
+        self.lambda_mmr = lambda_mmr
+
+        if search_function == "mmr":
+            self.search_function = self._mmr_search
+        else:
+            self.search_function = self._similarity_search
+
+
+    def _similarity_search(self, query: str) -> list[tuple[Document, float]]:
+        """
+        Perform standard similarity search with score filtering.
+
+        Args:
+            query (str): Query string.
+        Returns:
+            list[tuple[Document, float]]: List of (Document, score) tuples.
+        """
+
+        retrieved_docs_scores =  self.vectorstore.similarity_search_with_score(
+            query,
+            k=self.k_documents
+        )
+        return [(doc, score) for (doc, score) in retrieved_docs_scores 
+                           if 0 < score < self.similarity_threshold]
+
+
+    def _mmr_search(self, query: str) -> list[tuple[Document, None]]:
+        """
+        Perform maximum marginal relevance search. 
+        Returns documents without scores since they aren't provided by MMR.
+        
+        Args:
+            query (str): Query string.
+        Returns:
+            list[Document]: List of retrieved Documents.
+        """
+
+        docs = self.vectorstore.max_marginal_relevance_search(
+            query,
+            k=self.k_documents,
+            lambda_mult=self.lambda_mmr
+        )
+        return [(doc, None) for doc in docs]
+
+
+    def _extract_query_text(self, content: Any) -> str:
+        """Extract query text from message content of various types."""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            text_parts = [
+                item if isinstance(item, str) else item.get("text", "")
+                for item in content
+            ]
+            return " ".join(text_parts).strip()
+        else:
+            return str(content)
 
     # This overrides the before_model hook to inject retrieved documents
     def before_model(self, state: CustomAgentState, runtime: Any) -> dict[str, Any]:
 
         last_message = state["messages"][-1]
 
-        # Handle different content types - extract string for search
-        query_text: str
-        if isinstance(last_message.content, str):
-            query_text = last_message.content
-
-        elif isinstance(last_message.content, list):
-            # Extract text from content blocks (common in multimodal messages)
-            text_parts = [
-                item if isinstance(item, str) else item.get("text", "")
-                for item in last_message.content
-            ]
-            query_text = " ".join(text_parts).strip()
-
-        else:
-            # Fallback for unexpected types
-            query_text = str(last_message.content)
+        # Extract query text
+        query_text = self._extract_query_text(last_message.content)
         
-        # Do the similarity search
-        retrieved_docs_scores = self.vectorstore.similarity_search_with_score(
-            query_text,
-            k=self.k_documents
-        )
+        # Retrieve documents
+        retrieved_docs = self.search_function(query_text)
 
-        # Filter docs based on a score threshold if needed
-        # By default, LangCain returns cosine distance (lower is better)
-        retrieved_docs = [(doc, score) for (doc, score) in retrieved_docs_scores 
-                          if 0 < score < self.similarity_threshold]
-
-        # Format context with numbered sources for citation using shared helpers
-        docs_content_with_citations = []
-        for idx, (doc, score) in enumerate(retrieved_docs, 1):
-            citation = build_citation(doc, idx, score)
-            docs_content_with_citations.append(
-                format_citation_line(citation, include_content=doc.page_content)
-            )
-        
-        docs_content = "\n\n".join(docs_content_with_citations)
-
-        augmented_message_content = (
-            f"{last_message.content}\n\n"
-            "Use the following context to answer the query. "
-            "When using information from the context, cite the source number (e.g., [1]):\n\n"
-            f"{docs_content}"
+        # Use RAG agent's formatting method with debug_score flag
+        augmented_content = self.rag_agent._format_retrieved_docs(
+            retrieved_docs,
+            last_message.content,
         )
         
-        # Provide retrieved docs under "context" (matches state_schema)
+        # Provide retrieved docs with scores under "context" (matches state_schema)
         return {
-            "messages": [last_message.model_copy(update={"content": augmented_message_content})],
+            "messages": [last_message.model_copy(update={"content": augmented_content})],
             "context": retrieved_docs,
         }
 
@@ -124,15 +187,13 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
 class RAGAgent:
 
-    def __init__(self,
+    def __init__(
+        self,
         chroma_db_dir: Path | str,
-        collection_name: str,
-        model_name: str = "mistral-small-latest",
+        collection_name: str = "ragrarian",
         embeddings_model: str = "mistral-embed",
-        temperature: float = 0.7,
-        max_tokens: int = 1024,
-        k_documents: int = 4,
-        similarity_threshold: float = 0.25
+        model_config: ModelConfig | None = None,
+        retrieval_config: RetrievalConfig | None = None,
     ):
         
         """
@@ -140,19 +201,19 @@ class RAGAgent:
         
         Args:
             chroma_db_dir (Path | str): Directory containing the ChromaDB database.
-            collection_name (str): name of the ChromaDB collection.
-            model_name (str): Mistral model to use for chat.
-            embeddings_model (str): Model to use for embeddings.
-            temperature (float): Temperature for response generation.
-            max_tokens (int): Maximum tokens in response.
-            k_documents (int): Number of documents to retrieve.
-            similarity_threshold (float): Similarity score threshold for document filtering.
+            collection_name (str): Name of the ChromaDB collection. Default is 'ragrarian'.
+            embeddings_model (str): Model to use for embeddings. Default is 'mistral-embed'.
+            model_config (ModelConfig | None): Configuration for the LLM model. If None, uses defaults.
+            retrieval_config (RetrievalConfig | None): Configuration for retrieval. If None, uses defaults.
         """
         
         self.chroma_db_dir = Path(chroma_db_dir)
-        self.collection_name= collection_name
-        self.k_documents = k_documents
-        self.similarity_threshold = similarity_threshold
+        self.collection_name = collection_name
+        self.model_config = model_config or ModelConfig()
+        self.retrieval_config = retrieval_config or RetrievalConfig()
+        
+        # Convenience properties for backward compatibility
+        self.debug_score = self.retrieval_config.debug_score
         
         # Initialize embeddings
         self.embeddings = MistralAIEmbeddings(model=embeddings_model)
@@ -166,31 +227,74 @@ class RAGAgent:
         
         # Initialize chat model
         self.model = ChatMistralAI(
-            model_name=model_name,
-            temperature=temperature,
-            max_tokens=max_tokens
+            model_name=self.model_config.name,
+            temperature=self.model_config.temperature,
+            max_tokens=self.model_config.max_tokens
         )
 
         # Create agent with retrieval middleware
+        # Note: self.agent is initialized after middleware to avoid circular reference issues
+        self.agent = None
+        
+        # Now create the middleware with reference to self
         self.agent = create_agent(
             self.model,
             system_prompt="Please be concise and to the point.",
             tools=[],
-            middleware=[RetrieveDocumentsMiddleware(self.vectorstore, 
-                                                    self.k_documents,
-                                                    self.similarity_threshold)],
+            middleware=[RetrieveDocumentsMiddleware(
+                self,
+                self.vectorstore,
+                self.retrieval_config.k_documents,
+                self.retrieval_config.search_function,
+                self.retrieval_config.similarity_threshold,
+                self.retrieval_config.lambda_mmr
+            )],
             state_schema=CustomAgentState,
             checkpointer=InMemorySaver()
         )
 
         self.agent.invoke(
             {"messages": [{"role": "user", 
-                           "content": "Hi! My source is Bob."
-                           }]
-                        },
+                           "content": "Hi! My source is Bob."}]},
             {"configurable": {"thread_id": "1"}},  
         )
 
+
+    def _format_retrieved_docs(self, 
+                               retrieved_docs: List[Tuple[Document, float]] | List[Tuple[Document, None]],
+                               original_query: Any, 
+                               ) -> str:
+        """
+        Format retrieved documents into context string for model.
+        
+        Args:
+            retrieved_docs: List of (Document, score) tuples from retrieval.
+            original_query: Original user query content.
+            
+        Returns:
+            tuple: (formatted_context_string, list_of_docs_for_state)
+        """
+
+        # When feeding the documents to the model, we want to include the citation
+        # but not the score (if provided) as it's not used in the model input.
+        docs_content_with_citations = []
+        for idx, (doc, score) in enumerate(retrieved_docs, 1):
+            citation = build_citation(doc, idx, score)
+            docs_content_with_citations.append(
+                format_citation_line(citation, include_content=doc.page_content)
+            )
+        
+        docs_content = "\n\n".join(docs_content_with_citations)
+        
+        augmented_content = (
+            f"{original_query}\n\n"
+            "Use the following context to answer the query. "
+            "When using information from the context, cite the source number (e.g., [1]):\n\n"
+            f"{docs_content}"
+        )
+        
+        return augmented_content
+    
 
     def chat(self, thread_id: str = "default"):
         """
@@ -217,9 +321,9 @@ class RAGAgent:
                 if user_input.lower() == 'sources':
                     if last_context:
                         print("\nSources from last response:")
-                        for idx, doc in enumerate(last_context):
-                            citation = build_citation(doc, idx)
-                            print(f"{format_citation_line(citation)}")
+                        for citation in format_context_for_display(last_context, 
+                                                                   debug_score=self.debug_score):
+                            print(citation)
                     else:
                         print("No sources available yet. Ask a question first!")
                     continue
@@ -258,36 +362,37 @@ class RAGAgent:
                 print(f"\nError: {e}")
                 continue
 
-    def query(self, question: str, thread_id: str = "default") -> dict:
+
+    def query(self, question: str, thread_id: str = "default", **kwargs) -> dict:
         """
         Query the agent with a single question.
         
         Args:
             question (str): The question to ask.
             thread_id (str): Thread ID for conversation continuity.
+            kwargs: Additional arguments (debug_score, include_content).
             
         Returns:
-            dict: Contains 'answer' and 'sources' keys.
+            dict: Contains 'answer' and 'context' keys.
         """
         result = self.agent.invoke(
             {"messages": [{"role": "user", "content": question}]},
             {"configurable": {"thread_id": thread_id}}
         )
         
-        # Extract answer and sources
+        # Extract answer and context
         answer = result["messages"][-1].content
-        sources = []
         retrieved = result.get("context", []) 
 
-        for idx, doc in enumerate(retrieved):
-            citation_dict = build_citation(doc, idx)
-            citation = format_citation_line(citation_dict)
-            # Expose a consistent, enriched source dict to callers
-            sources.append(citation)
-        
+        if retrieved:
+            context = format_context_for_display(retrieved, debug_score=self.debug_score)
+        else:
+            context = ["No sources retrieved."]
+
+            
         return {
             "answer": answer,
-            "sources": sources
+            "context": context
         }
     
 
@@ -296,12 +401,16 @@ class RAGAgent:
             "What is permaculture?"
         )
 
+        # Create properly typed state
+        input_state: CustomAgentState = {
+            "messages": [{"role": "user", "content": query}],
+            "user_id": "user_123",
+            "preferences": {"theme": "dark"},
+            "context": []
+        }
+
         for step in self.agent.stream(
-            {
-                "messages": [{"role": "user", "content": query}],
-                "user_id": "user_123",
-                "preferences": {"theme": "dark"}
-            },
+            input_state,
             {"configurable": {"thread_id": "1"}},
             stream_mode="values"
             ):
@@ -311,7 +420,7 @@ class RAGAgent:
 
     def _test_query_with_sources(self):
         """Test query that shows citations."""
-        query = "What are the principles of permaculture?"
+        query = "What are Holmgren's 12 Design Principles?"
         
         print("Question:", query)
         print("\n" + "="*50 + "\n")
@@ -327,13 +436,21 @@ class RAGAgent:
             print(source)
 
 
-
 if __name__ == "__main__":
-    import os
+    from os import getenv
     from dotenv import load_dotenv
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run the RAG Agent in the terminal or test it with a query.")
+
+    parser.add_argument("--chat", action="store_true", help="Run the RAG Agent in interactive chat mode.")
+    parser.add_argument("--test", action="store_true", help="Test the RAG Agent with a predefined query.")
+    parser.add_argument("--debug_scores", action="store_true", default=False, help="Display similarity scores in sources (for testing).")
+
+    args = parser.parse_args()
 
     load_dotenv()
-    mistral_api_key = os.getenv("MISTRAL_API_KEY")
+    mistral_api_key = getenv("MISTRAL_API_KEY")
 
     if mistral_api_key:
         mistral_api_key = mistral_api_key.strip()
@@ -341,16 +458,29 @@ if __name__ == "__main__":
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
 
     agent = RAGAgent(
-        chroma_db_dir = Path("../chroma_db"),
-        collection_name = "ragrarian",
-        model_name = "mistral-small-latest",
-        embeddings_model = "mistral-embed",
+        chroma_db_dir=Path("../chroma_db"),
+        collection_name="ragrarian",
+        embeddings_model="mistral-embed",
+        model_config=ModelConfig(
+            name="mistral-small-latest",
+            temperature=0.7,
+            max_tokens=1024
+        ),
+        retrieval_config=RetrievalConfig(
+            k_documents=5,
+            search_function="similarity",
+            similarity_threshold=10000,  # High threshold to allow all documents
+            debug_score=args.debug_scores
+        )
     )
     
-    # agent._test_query_prompt_with_context()
-
     # Option 1: Interactive chat
-    # agent.chat(thread_id="session_1")
+    if args.chat:
+        agent.chat(thread_id="session_1")
     
     # Option 2: Single query with sources
-    agent._test_query_with_sources()
+    elif args.test:
+        agent._test_query_with_sources()
+
+    else:
+        parser.print_help()
