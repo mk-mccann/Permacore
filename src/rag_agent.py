@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
@@ -9,108 +9,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, AgentState
 from langgraph.checkpoint.memory import InMemorySaver  
 
-
-# ---------------------------------------------------------------------------
-# Shared citation formatting helpers (reusable across chat/query/UI)
-# ---------------------------------------------------------------------------
-def format_header_chain(metadata: dict) -> str | None:
-    """Build a hierarchical header chain H1 > H2 > H3 > H4 from metadata.
-
-    Falls back to common variants (head_*) and a generic 'header' field.
-    Returns None if nothing present.
-    """
-    levels_primary = ['header_1', 'header_2', 'header_3', 'header_4']
-    levels_alt = ['head_1', 'head_2', 'head_3', 'head_4']
-    vals: list[str] = []
-
-    for k in levels_primary:
-        v = metadata.get(k)
-        if isinstance(v, str) and v.strip():
-            vals.append(v.strip())
-    if not vals:
-        for k in levels_alt:
-            v = metadata.get(k)
-            if isinstance(v, str) and v.strip():
-                vals.append(v.strip())
-    if not vals:
-        v = metadata.get('header')
-        if isinstance(v, str) and v.strip():
-            vals.append(v.strip())
-
-    # Deduplicate while preserving order
-    seen: set[str] = set()
-    vals = [h for h in vals if not (h in seen or seen.add(h))]
-    if not vals:
-        return None
-    return " > ".join(vals) if len(vals) > 1 else vals[0]
-
-
-def build_citation(doc: Document, source_number: int) -> dict:
-    """Create a structured citation dict from a Document for consistent use.
-
-    Returns keys commonly used by the UI and logs:
-    - source_number, title, header, url, page, file, file_path, metadata, citation_text
-    """
-    md = doc.metadata if hasattr(doc, 'metadata') and isinstance(doc.metadata, dict) else {}
-    
-    # Normalize string "None" to actual None and decode bytes to str
-    for key in list(md.keys()):
-        if isinstance(md[key], bytes):
-            md[key] = md[key].decode('utf-8', errors='ignore')
-        if md[key] == "None":
-            md[key] = None
-
-
-    source = md.get('source') or 'Unknown'
-    title = md.get('title') or 'Unknown'
-    header = format_header_chain(md)
-    url = md.get('url', None)
-    page = md.get('page', None)
-    file_label = md.get('file_path') or md.get('path') or 'Unknown'
-    file_path = md.get('file_path')    
-
-    citation_text = f"[{source_number}] {source}: {title}, "
-    if header:
-        citation_text += f"Section: {header}, "
-    if url is not None:
-        citation_text += f"URL: {url}, "
-    if page is not None:
-        citation_text += f"Page: {page}, "
-
-    if url is not None:
-        hyperlink_citation = f"[{source_number}] [{source}: {title}]({url})"
-    else:
-        hyperlink_citation = None
-
-    # Trim any trailing comma + space and close paren
-    citation_text = citation_text.rstrip(', ')
-
-    return {
-        "source_number": source_number,
-        "source": source,
-        "title": title,
-        "header": header,
-        "url": url,
-        "page": page,
-        "file": file_label,
-        "file_path": file_path,
-        "metadata": md,
-        "citation_text": citation_text,
-        "hyperlink_citation": hyperlink_citation
-    }
-
-
-def format_citation_line(citation: Dict[str, str], include_content: str | None = None) -> str:
-    """Render a single citation line (optionally followed by content).
-
-    include_content: if provided, appended after the citation line separated by newline.
-    """
-    base = citation.get("hyperlink_citation") if citation.get("hyperlink_citation") else (citation.get("citation_text") or "")
-   
-    if include_content:
-        return f"{base}\n{include_content}"
-    else:
-        return base
+from utils.citation_formatter import build_citation, format_citation_line
 
 
 class CustomAgentState(AgentState):  
@@ -123,24 +22,51 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
     state_schema = CustomAgentState
 
-    def __init__(self, vectorstore: Chroma, k_documents: int = 4):
+    def __init__(self, vectorstore: Chroma, 
+                 k_documents: int = 4, 
+                 similarity_threshold: float = 0.25):
+        
         self.vectorstore = vectorstore
         self.k_documents = k_documents
+        self.similarity_threshold = similarity_threshold
 
-
-    # Use shared header formatting helpers defined above
-    def before_model(self, state: CustomAgentState) -> dict[str, Any] | None:
+    # This overrides the before_model hook to inject retrieved documents
+    def before_model(self, state: CustomAgentState, runtime: Any) -> dict[str, Any]:
 
         last_message = state["messages"][-1]
-        retrieved_docs = self.vectorstore.similarity_search(
-            last_message.content,
+
+        # Handle different content types - extract string for search
+        query_text: str
+        if isinstance(last_message.content, str):
+            query_text = last_message.content
+
+        elif isinstance(last_message.content, list):
+            # Extract text from content blocks (common in multimodal messages)
+            text_parts = [
+                item if isinstance(item, str) else item.get("text", "")
+                for item in last_message.content
+            ]
+            query_text = " ".join(text_parts).strip()
+
+        else:
+            # Fallback for unexpected types
+            query_text = str(last_message.content)
+        
+        # Do the similarity search
+        retrieved_docs_scores = self.vectorstore.similarity_search_with_score(
+            query_text,
             k=self.k_documents
         )
 
+        # Filter docs based on a score threshold if needed
+        # By default, LangCain returns cosine distance (lower is better)
+        retrieved_docs = [(doc, score) for (doc, score) in retrieved_docs_scores 
+                          if 0 < score < self.similarity_threshold]
+
         # Format context with numbered sources for citation using shared helpers
         docs_content_with_citations = []
-        for idx, doc in enumerate(retrieved_docs, 1):
-            citation = build_citation(doc, idx)
+        for idx, (doc, score) in enumerate(retrieved_docs, 1):
+            citation = build_citation(doc, idx, score)
             docs_content_with_citations.append(
                 format_citation_line(citation, include_content=doc.page_content)
             )
@@ -154,12 +80,10 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
             f"{docs_content}"
         )
         
-        # Provide retrieved docs under both "context" (matches state_schema)
-        # and "sources" (for downstream consumers expecting that key)
+        # Provide retrieved docs under "context" (matches state_schema)
         return {
             "messages": [last_message.model_copy(update={"content": augmented_message_content})],
             "context": retrieved_docs,
-            "sources": retrieved_docs,
         }
 
 
@@ -207,7 +131,8 @@ class RAGAgent:
         embeddings_model: str = "mistral-embed",
         temperature: float = 0.7,
         max_tokens: int = 1024,
-        k_documents: int = 4
+        k_documents: int = 4,
+        similarity_threshold: float = 0.25
     ):
         
         """
@@ -221,11 +146,13 @@ class RAGAgent:
             temperature (float): Temperature for response generation.
             max_tokens (int): Maximum tokens in response.
             k_documents (int): Number of documents to retrieve.
+            similarity_threshold (float): Similarity score threshold for document filtering.
         """
         
         self.chroma_db_dir = Path(chroma_db_dir)
         self.collection_name= collection_name
         self.k_documents = k_documents
+        self.similarity_threshold = similarity_threshold
         
         # Initialize embeddings
         self.embeddings = MistralAIEmbeddings(model=embeddings_model)
@@ -249,14 +176,17 @@ class RAGAgent:
             self.model,
             system_prompt="Please be concise and to the point.",
             tools=[],
-            middleware=[RetrieveDocumentsMiddleware(self.vectorstore, self.k_documents)],
+            middleware=[RetrieveDocumentsMiddleware(self.vectorstore, 
+                                                    self.k_documents,
+                                                    self.similarity_threshold)],
             state_schema=CustomAgentState,
             checkpointer=InMemorySaver()
         )
 
         self.agent.invoke(
             {"messages": [{"role": "user", 
-                        "content": "Hi! My source is Bob."}]
+                           "content": "Hi! My source is Bob."
+                           }]
                         },
             {"configurable": {"thread_id": "1"}},  
         )
@@ -347,11 +277,9 @@ class RAGAgent:
         # Extract answer and sources
         answer = result["messages"][-1].content
         sources = []
+        retrieved = result.get("context", []) 
 
-        # Prefer 'context' (aligned with state schema) but fall back to 'sources'
-        retrieved = result.get("context") or result.get("sources") or []
-
-        for idx, doc in enumerate(retrieved, 1):
+        for idx, doc in enumerate(retrieved):
             citation_dict = build_citation(doc, idx)
             citation = format_citation_line(citation_dict)
             # Expose a consistent, enriched source dict to callers
@@ -395,7 +323,7 @@ class RAGAgent:
         print("\n" + "-"*50 + "\n")
         print("Sources:")
 
-        for source in result["sources"]:
+        for source in result["context"]:
             print(source)
 
 
@@ -405,7 +333,12 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
-    mistral_api_key = os.getenv("MISTRAL_API_KEY").strip()
+    mistral_api_key = os.getenv("MISTRAL_API_KEY")
+
+    if mistral_api_key:
+        mistral_api_key = mistral_api_key.strip()
+    else:   
+        raise ValueError("MISTRAL_API_KEY not set in environment variables.")
 
     agent = RAGAgent(
         chroma_db_dir = Path("../chroma_db"),
