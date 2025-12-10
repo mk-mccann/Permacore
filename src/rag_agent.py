@@ -15,7 +15,15 @@ from utils.citation_formatter import build_citation, format_citation_line, forma
 
 @dataclass
 class ModelConfig:
-    """Configuration for the LLM model."""
+    """
+    Configuration for the LLM model.
+
+    Args:
+        name (str): Model name. Default is "mistral-small-latest".
+        temperature (float): Model temperature. Default is 0.7.
+        max_tokens (int): Maximum number of tokens for the model output. Default is 1024.
+    """
+
     name: str = "mistral-small-latest"
     temperature: float = 0.7
     max_tokens: int = 1024
@@ -23,9 +31,20 @@ class ModelConfig:
 
 @dataclass
 class RetrievalConfig:
-    """Configuration for document retrieval."""
+    """
+    Configuration for document retrieval.
+    
+    Args:
+        k_documents (int): Number of documents to retrieve.
+        search_function (str): Search function to use
+                                      'mmr' for max marginal relevance
+                                      (default) 'similarity' for standard similarity search.    
+        similarity_threshold (float): Similarity score threshold for document filtering.
+        lambda_mmr (float): Lambda parameter for max marginal relevance search.
+        debug_score (bool): Flag to include similarity scores in the output for debugging.
+    """
     k_documents: int = 5
-    search_function: str = "similarity"
+    search_function: str = "similarity"   # 'mmr' for max marginal relevance. Default is 'similarity' for cosine similarity search
     similarity_threshold: float = 0.25    # used for similarity search
     lambda_mmr: float = 0.7  # used for mmr search
     debug_score: bool = False
@@ -194,6 +213,7 @@ class RAGAgent:
         embeddings_model: str = "mistral-embed",
         model_config: ModelConfig | None = None,
         retrieval_config: RetrievalConfig | None = None,
+        **kwargs
     ):
         
         """
@@ -212,8 +232,8 @@ class RAGAgent:
         self.model_config = model_config or ModelConfig()
         self.retrieval_config = retrieval_config or RetrievalConfig()
         
-        # Convenience properties for backward compatibility
-        self.debug_score = self.retrieval_config.debug_score
+        # Debug flags
+        self.debug_score = kwargs.get("debug_score", False)
         
         # Initialize embeddings
         self.embeddings = MistralAIEmbeddings(model=embeddings_model)
@@ -468,7 +488,7 @@ if __name__ == "__main__":
         ),
         retrieval_config=RetrievalConfig(
             k_documents=5,
-            search_function="similarity",
+            search_function="similarity", 
             similarity_threshold=10000,  # High threshold to allow all documents
             debug_score=args.debug_scores
         )
