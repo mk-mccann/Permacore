@@ -260,9 +260,9 @@ class MarkdownChunkerWithKeywordExtraction:
         documents = [
             Document(
                 page_content=chunk,
-                metadata={}
+                metadata={"sequence": i}  # Optional: track original sequence
             )
-            for chunk in final_chunks
+            for i, chunk in enumerate(final_chunks)
         ]
 
         return documents
