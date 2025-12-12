@@ -225,9 +225,9 @@ class MarkdownChunkerWithKeywordExtraction:
         documents = [
             Document(
                 page_content=chunk,
-                metadata={}
+                metadata={"sequence", i}    #tag source type
             )
-            for chunk in final_chunks
+            for i, chunk in enumerate(final_chunks)
         ]
 
         return documents
@@ -260,7 +260,7 @@ class MarkdownChunkerWithKeywordExtraction:
         documents = [
             Document(
                 page_content=chunk,
-                metadata={"sequence": i}  # Optional: track original sequence
+                metadata={"sequence": i}    # track original sequence
             )
             for i, chunk in enumerate(final_chunks)
         ]
@@ -417,6 +417,9 @@ class MarkdownChunkerWithKeywordExtraction:
             section_path = ' > '.join(filter(None, headers))
             if section_path:
                 doc.metadata['section_path'] = section_path
+
+            # Tag that docs come from RAG processing
+            doc.metadata['source_type'] = 'rag'
         
         return documents
     

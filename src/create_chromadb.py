@@ -589,7 +589,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--delay_seconds",
         type=float,
-        default=1,
+        default=1.5,
         help="Seconds to wait between batches"
     )
     parser.add_argument(
