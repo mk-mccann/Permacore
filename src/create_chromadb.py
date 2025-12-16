@@ -4,7 +4,7 @@ import json
 import hashlib
 import random
 
-from httpx import ReadError
+from httpx import HTTPStatusError, ReadError
 from alive_progress import alive_it, alive_bar
 from typing import List, Dict, Set, Tuple, Optional
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -262,7 +262,7 @@ class CreateChromaDB:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((ReadError,))
+        retry=retry_if_exception_type((ReadError, HTTPStatusError))
     )
     def add_batch_with_retry(self, batch: List[Document]):
         """
@@ -605,11 +605,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--retry",
         action="store_true",
-        help="Retry embedding for previously failed batches"
-    )
-    parser.add_argument(
-        "--retry_only",
-        action="store_true",
         help="Retry only the failed batches from the log"
     )
 
@@ -626,11 +621,11 @@ if __name__ == "__main__":
     )
 
     # Use the new method with checkpointing, retry logic, and incremental updates
-    # Set rebuild=False and resume=True (default) to only process new or modified documents
+    # Set rebuild=False and resume=False (default) to check for and process new or modified documents
     # Set rebuild=True and resume=False to rebuild the entire database from scratch
-    # If rebuild=False and resume=False, it will reprocess new/modified documents from the start
+    # If rebuild=False and resume=True, it will reprocess new/modified documents from the last checkpoint
     # If rebuild=True and resume=True, it will resume full processing from the last checkpoint
-    if args.retry_only:
+    if args.retry:
         creator.retry_failed_batches(batch_size=args.batch_size, 
                                      delay_seconds=args.delay_seconds)
     else:
@@ -641,7 +636,6 @@ if __name__ == "__main__":
                                 rebuild=args.rebuild)
         
         # Retry failed batches if needed
-        if args.retry:
-            creator.retry_failed_batches()
+        creator.retry_failed_batches()
     
     print("ChromaDB creation complete.")
