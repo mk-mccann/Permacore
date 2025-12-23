@@ -1,3 +1,14 @@
+---
+title: Permacore
+emoji: 🌿
+colorFrom: {{colorFrom}}
+colorTo: {{colorTo}}
+sdk: {{sdk}}
+sdk_version: "{{sdkVersion}}"
+app_file: app.py
+pinned: true
+---
+
 # 🌿 Permacore 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
 
 ## Overview
