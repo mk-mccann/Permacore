@@ -1,8 +1,8 @@
 ---
 title: Permacore
 emoji: 🌿
-colorFrom: {{colorFrom}}
-colorTo: {{colorTo}}
+colorFrom: green
+colorTo: blue
 sdk: {{sdk}}
 sdk_version: "{{sdkVersion}}"
 app_file: app.py
