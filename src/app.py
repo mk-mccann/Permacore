@@ -129,7 +129,7 @@ def create_demo():
                     answer_output = gr.Markdown(
                         label="Answer",
                         value="Response will appear here after asking a question.",
-                        show_copy_button=True
+                        buttons=['copy']
                     )
                 with gr.Column():
                     sources_output = gr.Markdown(
