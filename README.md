@@ -10,7 +10,7 @@ app_file: app.py
 pinned: true
 ---
 
-# 🌿 Permacore 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
+# Permacore 🌿 Chatbot for Permaculture, Regenerative Agriculture, and Sustainable Developent
 
 ## Overview
 
