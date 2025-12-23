@@ -8,9 +8,9 @@ from langchain_mistralai.embeddings import MistralAIEmbeddings
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver  
 
-from utils.citation_formatter import format_context_for_display
 from config import ChromaConfig, LLMConfig, RetrievalConfig
 from middleware.retriever import CustomAgentState, RetrieveDocumentsMiddleware
+from utils.citation_formatter import format_context_for_display
 
 
 
@@ -18,9 +18,9 @@ class RAGAgent:
 
     def __init__(
         self,
-        chroma_config: ChromaConfig = ChromaConfig(),
-        llm_config: LLMConfig = LLMConfig(),
-        retrieval_config: RetrievalConfig = RetrievalConfig(),
+        chroma_config: ChromaConfig | None = None,
+        llm_config: LLMConfig | None = None,
+        retrieval_config: RetrievalConfig | None = None,
         **kwargs
     ):
         
@@ -29,12 +29,17 @@ class RAGAgent:
         
         Args:
             chroma_config (ChromaConfig): Configuration for ChromaDB. If None, uses defaults.
-            model_config (ModelConfig | None): Configuration for the LLM model. If None, uses defaults.
-            retrieval_config (RetrievalConfig | None): Configuration for retrieval. If None, uses defaults.
+            llm_config (LLMConfig): Configuration for the LLM model. If None, uses defaults.
+            retrieval_config (RetrievalConfig): Configuration for retrieval. If None, uses defaults.
 
         Kwargs:
             debug_score (bool): Flag to include similarity scores in the output for debugging. Default False.
         """
+        
+        # Use provided configs or fall back to defaults
+        chroma_config = chroma_config or ChromaConfig()
+        llm_config = llm_config or LLMConfig()
+        retrieval_config = retrieval_config or RetrievalConfig()
         
         # Debug flags
         self.debug_score = kwargs.get("debug_score", False)
