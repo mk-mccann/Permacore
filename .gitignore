@@ -3,7 +3,7 @@
 .gradio
 .vscode/
 .pytest_cache/
-chromadb/
+chroma/
 data/
 logs/
 __pycache_/
