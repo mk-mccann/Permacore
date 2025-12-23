@@ -539,18 +539,7 @@ if __name__ == "__main__":
     from os import getenv
     from dotenv import load_dotenv
 
-    load_dotenv()
-    api_key_str = getenv("MISTRAL_API_KEY")
-    
-    if not api_key_str:
-        raise ValueError("MISTRAL_API_KEY not found in environment variables")
-    
-    api_key_str = api_key_str.strip()
-
-    # Setup Mistral model and embeddings
-    embeddings = MistralAIEmbeddings(api_key=api_key_str, model="mistral-embed")
-
-    # Setup argument parser
+        # Setup argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input_directory", "--input", "-i",
@@ -561,7 +550,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vectorstore_path", "--vectorstore",
         type=str,
-        default="../chroma_db",
+        default="../chroma",
         help="Path to store the ChromaDB vector database"
     )
     parser.add_argument(
@@ -605,6 +594,18 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    load_dotenv()
+    api_key_str = getenv("MISTRAL_API_KEY")
+    
+    if not api_key_str:
+        raise ValueError("MISTRAL_API_KEY not found in environment variables")
+    
+    api_key_str = api_key_str.strip()
+
+    # Setup Mistral model and embeddings
+    embeddings = MistralAIEmbeddings(api_key=api_key_str, model="mistral-embed")
+
 
     chroma_config = ChromaConfig(
         collection_name=args.collection_name,

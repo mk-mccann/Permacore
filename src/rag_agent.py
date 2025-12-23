@@ -36,34 +36,27 @@ class RAGAgent:
             debug_score (bool): Flag to include similarity scores in the output for debugging. Default False.
         """
         
-        self.chroma_config = chroma_config
-        self.model_config = llm_config
-        self.retrieval_config = retrieval_config
-        
         # Debug flags
         self.debug_score = kwargs.get("debug_score", False)
         
-        # Initialize embeddings
-        self.embeddings = MistralAIEmbeddings(model=self.chroma_config.embeddings)
-        
         # Initialize vectorstore
         self.vectorstore = Chroma(
-            collection_name=self.chroma_config.collection_name,
-            embedding_function=self.embeddings,
-            persist_directory=str(self.chroma_config.directory)
+            collection_name=chroma_config.collection_name,
+            embedding_function=chroma_config.embeddings,
+            persist_directory=str(chroma_config.directory)
         )
         
         # Initialize chat model
         self.model = ChatMistralAI(
-            model_name=self.model_config.model,
-            temperature=self.model_config.temperature,
-            max_tokens=self.model_config.max_tokens
+            model_name=llm_config.model,
+            temperature=llm_config.temperature,
+            max_tokens=llm_config.max_tokens
         )
         
         # Now create the middleware with reference to self
         retriever = RetrieveDocumentsMiddleware(
                 self.vectorstore,
-                self.retrieval_config
+                retrieval_config
             )
 
         # Initialize the agent
@@ -336,7 +329,10 @@ if __name__ == "__main__":
     
 
     # Set up configurations
-    chroma_config = ChromaConfig()
+    chroma_config = ChromaConfig(
+        embeddings = MistralAIEmbeddings(api_key=mistral_api_key,   #type : ignore
+                                         model="mistral-embed")    
+    )
     
     llm_config = LLMConfig(
         model="mistral-small-latest",

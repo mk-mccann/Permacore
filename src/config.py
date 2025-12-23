@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any
 
 
 # ====================================
@@ -56,12 +56,13 @@ class ChromaConfig:
     Configuration for ChromaDB
 
     Args:
-        collection_name (str): Name of ChromaDB collection.
+        embeddings (Any): Embedding model or function to use. User can provide their own embedding function.
         directory (Path | str): Directory to store the ChromaDB database.
+        collection_name (str): Name of ChromaDB collection.
         metadata (Dict[str, str]): Metadata for the collection, e.g. embedding function: {"hnsw:space": "cosine"}.
     """
 
-    embeddings = None  
+    embeddings: Any = None
     directory: str | Path = Path("../chroma")
     collection_name: str = "default_collection"
     metadata: Dict[str, str] = field(default_factory = lambda: {"hnsw:space": "cosine"})
@@ -135,7 +136,7 @@ class RetrievalConfig:
 
     k_documents: int = 5
     search_function: str = "similarity"   # 'mmr' for max marginal relevance. Default is cosine similarity search
-    similarity_threshold: float = 0.5     # used for similarity search
+    similarity_threshold: float = 0.3     # used for similarity search
     lambda_mmr: float = 0.7  # used for mmr search
     debug_score: bool = False
 
