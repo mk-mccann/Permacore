@@ -1,7 +1,7 @@
 import gradio as gr
 from pathlib import Path
 
-from rag_agent import RAGAgent, ModelConfig, RetrievalConfig
+from rag_agent import RAGAgent, LLMConfig, RetrievalConfig
 
 
 # Set custom theme
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     agent = RAGAgent(
         chroma_db_dir=Path("../chroma_db"),
         collection_name="permacore",
-        model_config=ModelConfig(),
+        llm_config=LLMConfig(),
         retrieval_config=RetrievalConfig(
                 search_function=args.search_function, 
                 similarity_threshold=0.3,  
