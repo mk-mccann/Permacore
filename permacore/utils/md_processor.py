@@ -25,7 +25,7 @@ from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration constants
-from src.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES, BOILERPLATE_INDICATORS, FRONTMATTER_KEY_ORDER
+from permacore.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES, BOILERPLATE_INDICATORS, FRONTMATTER_KEY_ORDER
 
 
 

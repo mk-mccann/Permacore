@@ -12,7 +12,7 @@ from langdetect import detect, LangDetectException
 from langchain_community.document_transformers import Html2TextTransformer
 from langchain_community.document_loaders import SitemapLoader, RecursiveUrlLoader, WebBaseLoader, AsyncChtmlLoader
 
-from src.config import DISALLOWED_FILE_TYPES
+from permacore.config import DISALLOWED_FILE_TYPES
 
 
 class WebsiteSpider(scrapy.Spider):

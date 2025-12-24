@@ -15,7 +15,7 @@ from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 from langdetect import detect, LangDetectException
 
-from src.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES
+from permacore.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES
 
 
 class HTML2MDScraper:
