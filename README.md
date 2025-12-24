@@ -6,7 +6,7 @@ colorTo: blue
 sdk: gradio
 sdk_version: 6.2.0  
 python_version: "3.13"
-app_file: src/app.py
+app_file: permacore/app.py
 pinned: true
 ---
 
