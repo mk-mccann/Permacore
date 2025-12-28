@@ -56,7 +56,6 @@ The UI is powered by Gradio. A local UI can be started by running `python app.py
 from os import getenv
 from dotenv import load_dotenv
 from permacore.rag_agent import RAGAgent
-from config import ChromaConfig, LLMConfig, RetrievalConfig
 
 load_dotenv()
 mistral_api_key = getenv("MISTRAL_API_KEY")
