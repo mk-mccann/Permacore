@@ -223,7 +223,7 @@ if __name__ == "__main__":
             repo_type="dataset",
         )
 
-        with tarfile.open("/home/matt/repos/Permacore/chroma_db.tar.gz") as tar:
+        with tarfile.open(dataset_path) as tar:
             tar.extractall(ROOT_DIR)
 
     # Set up configurations
