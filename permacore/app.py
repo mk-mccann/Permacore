@@ -243,7 +243,6 @@ if __name__ == "__main__":
         filename="chroma_db.tar.gz",
         cache_dir="../hf_data",
         repo_type="dataset",
-        local_files_only=True
     )
 
     # Extract, if not already done
