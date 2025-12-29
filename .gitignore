@@ -7,4 +7,5 @@
 chroma/
 data/
 logs/
+hf_data/
 __pycache_/
