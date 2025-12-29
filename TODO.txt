@@ -2,6 +2,8 @@
 - Separate LLM-retrieved sources from RAG retrieved sources
 - Add NLP-based chunking for better results with poorly formatted blogs
 - Add option for user to upload files and integrate that into UI
+- DeepEval evaluation framework and tests\
+- Fine-tune Mistral model
 
 
 Completed:
