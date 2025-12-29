@@ -241,13 +241,14 @@ if __name__ == "__main__":
     hf_hub_download(
         repo_id="mk-mccann/Permacore_vectorstore",
         filename="chroma_db.tar.gz",
-        local_dir="./chroma", 
-        cache_dir="./chroma",
+        cache_dir="../hf_data",
+        repo_type="dataset",
+        local_files_only=True
     )
 
     # Extract
-    with tarfile.open("chroma_db.tar.gz", "r:gz") as tar:
-        tar.extractall()
+    with tarfile.open("../hf_data/chroma_db.tar.gz", "r:gz") as tar:
+        tar.extractall("../chroma")
 
     # Set up configurations
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
