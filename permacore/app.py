@@ -10,7 +10,7 @@ from config import ChromaConfig, LLMConfig, RetrievalConfig
 
 
 # Set custom theme
-theme = gr.themes.Ocean(text_size="lg")
+theme = gr.themes.Ocean(text_size="lg") # type: ignore
 
 # Store conversation threads per session
 conversation_threads = {}
