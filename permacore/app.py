@@ -189,7 +189,7 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
-    from config import CONFIG_PATH
+    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
     parser.add_argument(
@@ -237,18 +237,19 @@ if __name__ == "__main__":
     else:   
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
     
+    print(os.getcwd())
     # Downlaod any required data files from Hugging Face if needed
     dataset_path = hf_hub_download(
         repo_id="mk-mccann/Permacore_vectorstore",
         filename="chroma_db.tar.gz",
-        cache_dir="../hf_data",
+        cache_dir=HF_DATA_DIR,
         repo_type="dataset",
     )
 
     # Extract, if not already done
-    if not os.path.exists("../chroma"):
+    if not os.path.exists(CHROMA_DIR):
         with tarfile.open(dataset_path) as tar:
-            tar.extractall("../chroma")
+            tar.extractall(CHROMA_DIR)
 
     # Set up configurations
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")

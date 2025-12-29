@@ -43,8 +43,13 @@ FRONTMATTER_KEY_ORDER = [
 # Defualts can be overridden by user config
 # ============================================
 
-# Path to the user configuration file
-CONFIG_PATH = Path(__file__).parents[1] / "configs" / "user_config.yaml"
+# Set paths
+ROOT_DIR = Path(__file__).resolve().parents[1]
+CONFIG_PATH = ROOT_DIR / "configs" / "user_config.yaml"
+CHROMA_DIR = ROOT_DIR / "chroma"
+DATA_DIR = ROOT_DIR / "data"
+HF_DATA_DIR = ROOT_DIR / "hf_data"
+LOGS_DIR = ROOT_DIR / "logs"
 
 
 T = TypeVar('T', bound='ConfigBase')
@@ -91,7 +96,7 @@ class ChromaConfig(ConfigBase):
     """
 
     embeddings: Any = None
-    directory: str | Path = Path("../chroma")
+    directory: str | Path = CHROMA_DIR
     collection_name: str = "default_collection"
     metadata: Dict[str, str] = Field(default_factory = lambda: {"hnsw:space": "cosine"})
 

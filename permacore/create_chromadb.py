@@ -538,20 +538,20 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
-    from config import CONFIG_PATH
+    from config import CONFIG_PATH, DATA_DIR, CHROMA_DIR, LOGS_DIR
 
         # Setup argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input_directory", "--input", "-i",
         type=str,
-        default="../data/chunked_documents/",
+        default=DATA_DIR/"chunked_documents/",
         help="Directory containing chunked JSONL documents"
     )
     parser.add_argument(
         "--vectorstore_path", "--vectorstore",
         type=str,
-        default="../chroma",
+        default=CHROMA_DIR,
         help="Path to store the ChromaDB vector database"
     )
     parser.add_argument(
@@ -559,12 +559,6 @@ if __name__ == "__main__":
         type=str,
         default="default_collection",
         help="Name of the ChromaDB collection"
-    )
-    parser.add_argument(
-        "--logs_directory", "--log",
-        type=str,
-        default="../logs/",
-        help="Directory to store logs like checkpoints and failed batches"
     )
     parser.add_argument(
         "--batch_size",
@@ -618,8 +612,8 @@ if __name__ == "__main__":
         embeddings=embeddings,
         chroma_config = chroma_config,
         chunked_docs_dir=Path(args.input_directory),
-        checkpoint_file=Path(args.logs_directory)/"embedding_checkpoint.json",
-        failed_batches_file=Path(args.logs_directory)/"failed_batches.txt"
+        checkpoint_file=LOGS_DIR/"embedding_checkpoint.json",
+        failed_batches_file=LOGS_DIR/"failed_batches.txt"
     )
 
     # Use the new method with checkpointing, retry logic, and incremental updates
